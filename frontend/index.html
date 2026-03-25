@@ -113,6 +113,37 @@ const clusters = [
 const colors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563eb'};
 const badgeColors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563eb'};
 
+// Telegram dispatch
+const TG_TOKEN = '8668063566:AAFO8eedHQyGBMLdRY-b0des3vEbDdSPvF4';
+const TG_CHAT = '50729638';
+
+function dispatch(id, urgency, score, count, summary) {
+  const msg = `🚨 *OUTREACH ALERT*\n\n📍 *${id}*\n⚠️ Urgency: *${urgency}* (${score}/20)\n📊 Reports: ${count} in last 24h\n\n${summary}\n\n_Sent from Invisible Census_`;
+  const btn = document.getElementById('btn-' + CSS.escape(id));
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({chat_id: TG_CHAT, text: msg, parse_mode: 'Markdown'})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.textContent = 'Alert Sent!';
+      btn.style.background = '#16a34a';
+    } else {
+      btn.textContent = 'Failed - Retry';
+      btn.disabled = false;
+    }
+  })
+  .catch(() => {
+    btn.textContent = 'Failed - Retry';
+    btn.disabled = false;
+  });
+}
+
 // Stats
 const totalReports = clusters.reduce((s,c) => s + c.count, 0);
 const criticalCount = clusters.filter(c => c.urgency === 'CRITICAL').length;
@@ -137,7 +168,7 @@ clusters.forEach(c => {
       <span class="urgency-badge" style="background:${badgeColors[c.urgency]}">${c.urgency} (${c.score})</span>
       <div class="detail"><strong>${c.count}</strong> reports in last 24h</div>
       <div class="detail" style="margin-top:6px;color:#334155">${c.summary}</div>
-      <button class="dispatch-btn" onclick="alert('Outreach alert dispatched to team for ${c.id}')">Send Outreach Alert</button>
+      <button class="dispatch-btn" id="btn-${c.id}" onclick="dispatch('${c.id}','${c.urgency}',${c.score},${c.count},\`${c.summary}\`)">Send Outreach Alert</button>
     </div>
   `;
 
@@ -152,6 +183,7 @@ clusters.forEach(c => {
       fillOpacity: 0.08,
       weight: 1,
       radius: radius * 1.8,
+      interactive: false,
       className: 'pulse'
     }).addTo(map);
   }
