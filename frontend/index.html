@@ -1,19 +1,161 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invisible Census</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invisible Census</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>*{margin:0;padding:0}body{font-family:system-ui;background:#0f172a;color:#e2e8f0}.header{padding:20px;border-bottom:1px solid #334155}h1{font-size:24px}#map{height:90vh}.legend{position:absolute;bottom:20px;right:20px;background:#1e293b;padding:15px;border-radius:8px}</style></head>
-<body><div class="header"><h1>🏙️ The Invisible Census</h1><p>Real-time SF homelessness tracking</p></div><div id="map"></div>
-<div class="legend"><h3>Urgency</h3><div>🔴 Critical</div><div>🟠 High</div><div>🟡 Medium</div><div>🔵 Low</div></div>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0}
+.header{padding:16px 24px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:22px;font-weight:700}
+.header p{color:#94a3b8;font-size:13px}
+.stats{display:flex;gap:16px}
+.stat{text-align:center;padding:4px 12px}
+.stat .num{font-size:20px;font-weight:700;color:#f1f5f9}
+.stat .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+#map{height:calc(100vh - 60px);width:100%}
+.legend{
+  position:fixed;bottom:24px;right:24px;
+  background:#1e293bee;backdrop-filter:blur(8px);
+  padding:16px 20px;border-radius:10px;
+  border:1px solid #334155;
+  z-index:1000;
+  box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  min-width:160px;
+}
+.legend h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:10px}
+.legend-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.legend-dot.critical{background:#dc2626;box-shadow:0 0 8px #dc262688}
+.legend-dot.high{background:#ea580c;box-shadow:0 0 8px #ea580c88}
+.legend-dot.medium{background:#ca8a04;box-shadow:0 0 8px #ca8a0488}
+.legend-dot.low{background:#2563eb;box-shadow:0 0 8px #2563eb88}
+.popup-content h3{margin:0 0 6px;font-size:15px;color:#1e293b}
+.popup-content .urgency-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;margin-bottom:6px}
+.popup-content .detail{font-size:12px;color:#475569;margin:3px 0}
+.popup-content .dispatch-btn{
+  margin-top:8px;padding:6px 14px;border:none;border-radius:6px;
+  background:#2563eb;color:#fff;font-size:12px;font-weight:600;
+  cursor:pointer;width:100%;
+}
+.popup-content .dispatch-btn:hover{background:#1d4ed8}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>The Invisible Census</h1>
+    <p>Real-time SF homelessness intelligence &mdash; powered by OpenClaw + Apify</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" id="total-reports">0</div><div class="label">Reports</div></div>
+    <div class="stat"><div class="num" id="total-clusters">0</div><div class="label">Clusters</div></div>
+    <div class="stat"><div class="num" id="critical-count">0</div><div class="label">Critical</div></div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div class="legend">
+  <h3>Urgency Level</h3>
+  <div class="legend-item"><span class="legend-dot critical"></span> Critical (15+)</div>
+  <div class="legend-item"><span class="legend-dot high"></span> High (10-14)</div>
+  <div class="legend-item"><span class="legend-dot medium"></span> Medium (5-9)</div>
+  <div class="legend-item"><span class="legend-dot low"></span> Low (&lt;5)</div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map=L.map('map').setView([37.7749,-122.4194],13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-const clusters=[
-{id:'SoMa',lat:37.7699,lon:-122.4103,count:12,urgency:'CRITICAL'},
-{id:'Tenderloin',lat:37.7833,lon:-122.4167,count:8,urgency:'HIGH'},
-{id:'Mission',lat:37.7599,lon:-122.4148,count:5,urgency:'MEDIUM'}
+const map = L.map('map').setView([37.7749, -122.4194], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; CartoDB',
+  maxZoom: 19
+}).addTo(map);
+
+const clusters = [
+  // CRITICAL
+  {id:'SoMa / Division St', lat:37.7699, lon:-122.4103, count:14, urgency:'CRITICAL', score:18,
+   summary:'Large encampment under freeway overpass. Multiple reports of medical distress. Growing rapidly over past 48h.'},
+  {id:'Civic Center / UN Plaza', lat:37.7793, lon:-122.4137, count:11, urgency:'CRITICAL', score:16,
+   summary:'Concentration near city hall. Reports of overdose incidents. Outreach teams requested urgently.'},
+
+  // HIGH
+  {id:'Tenderloin / Ellis St', lat:37.7833, lon:-122.4167, count:9, urgency:'HIGH', score:13,
+   summary:'Persistent encampment with growing population. Needles reported near school zone.'},
+  {id:'Tenderloin / Turk St', lat:37.7825, lon:-122.4145, count:7, urgency:'HIGH', score:11,
+   summary:'Multiple individuals needing shelter referrals. Some medical needs reported.'},
+  {id:'SOMA / 6th & Howard', lat:37.7788, lon:-122.4078, count:8, urgency:'HIGH', score:12,
+   summary:'Encampment blocking sidewalk. Wheelchair users rerouting into traffic.'},
+
+  // MEDIUM
+  {id:'Mission / 16th St BART', lat:37.7649, lon:-122.4194, count:6, urgency:'MEDIUM', score:8,
+   summary:'Small group near BART entrance. Generally stable, periodic outreach visits.'},
+  {id:'Mission / Cesar Chavez', lat:37.7480, lon:-122.4180, count:4, urgency:'MEDIUM', score:7,
+   summary:'Tent cluster under overpass. Residents cooperative with outreach teams.'},
+  {id:'Haight / Golden Gate Park', lat:37.7694, lon:-122.4530, count:5, urgency:'MEDIUM', score:6,
+   summary:'Scattered tents in park periphery. Park rangers monitoring.'},
+  {id:'Bayview / 3rd St', lat:37.7350, lon:-122.3910, count:4, urgency:'MEDIUM', score:5,
+   summary:'RV encampment along industrial corridor. Sanitation concerns reported.'},
+
+  // LOW
+  {id:'Marina / Lombard St', lat:37.7989, lon:-122.4360, count:2, urgency:'LOW', score:3,
+   summary:'Occasional reports. Individual appears to have belongings stored nearby.'},
+  {id:'Sunset / Irving St', lat:37.7637, lon:-122.4826, count:1, urgency:'LOW', score:2,
+   summary:'Single individual. Neighbors providing food. Stable situation.'},
+  {id:'Richmond / Clement St', lat:37.7827, lon:-122.4635, count:2, urgency:'LOW', score:3,
+   summary:'Two individuals near commercial strip. Business owners monitoring.'},
+  {id:'Potrero Hill', lat:37.7580, lon:-122.3990, count:1, urgency:'LOW', score:2,
+   summary:'Sporadic reports only. Low concern at this time.'}
 ];
-const colors={CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#ca8a04',LOW:'#2563eb'};
-clusters.forEach(c=>{
-L.circle([c.lat,c.lon],{color:colors[c.urgency],radius:200}).bindPopup(`<b>${c.id}</b><br>Reports: ${c.count}<br>Urgency: ${c.urgency}<br><button onclick="alert('Alert sent!')">📤 Dispatch</button>`).addTo(map);
+
+const colors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563eb'};
+const badgeColors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563eb'};
+
+// Stats
+const totalReports = clusters.reduce((s,c) => s + c.count, 0);
+const criticalCount = clusters.filter(c => c.urgency === 'CRITICAL').length;
+document.getElementById('total-reports').textContent = totalReports;
+document.getElementById('total-clusters').textContent = clusters.length;
+document.getElementById('critical-count').textContent = criticalCount;
+
+// Render clusters
+clusters.forEach(c => {
+  const radius = Math.max(120, c.count * 25);
+  const circle = L.circle([c.lat, c.lon], {
+    color: colors[c.urgency],
+    fillColor: colors[c.urgency],
+    fillOpacity: 0.25,
+    weight: 2,
+    radius: radius
+  });
+
+  const popup = `
+    <div class="popup-content">
+      <h3>${c.id}</h3>
+      <span class="urgency-badge" style="background:${badgeColors[c.urgency]}">${c.urgency} (${c.score})</span>
+      <div class="detail"><strong>${c.count}</strong> reports in last 24h</div>
+      <div class="detail" style="margin-top:6px;color:#334155">${c.summary}</div>
+      <button class="dispatch-btn" onclick="alert('Outreach alert dispatched to team for ${c.id}')">Send Outreach Alert</button>
+    </div>
+  `;
+
+  circle.bindPopup(popup, {maxWidth: 280});
+  circle.addTo(map);
+
+  // Pulsing effect for critical
+  if (c.urgency === 'CRITICAL') {
+    L.circle([c.lat, c.lon], {
+      color: colors[c.urgency],
+      fillColor: colors[c.urgency],
+      fillOpacity: 0.08,
+      weight: 1,
+      radius: radius * 1.8,
+      className: 'pulse'
+    }).addTo(map);
+  }
 });
-</script></body></html>
+</script>
+</body>
+</html>
