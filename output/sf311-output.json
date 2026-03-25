@@ -1,0 +1,5 @@
+[
+{"source":"sf311","caseId":"12345678","timestamp":"2026-03-25T22:00:00Z","requestType":"Homeless Encampment","description":"Large encampment under freeway","latitude":37.7699,"longitude":-122.4103,"neighborhood":"SoMa","urgency":8},
+{"source":"sf311","caseId":"12345679","timestamp":"2026-03-25T21:00:00Z","requestType":"Homeless Person","description":"Person needs medical attention","latitude":37.7833,"longitude":-122.4167,"neighborhood":"Tenderloin","urgency":15},
+{"source":"sf311","caseId":"12345680","timestamp":"2026-03-25T20:00:00Z","requestType":"Homeless Encampment","description":"Tent encampment near playground","latitude":37.7599,"longitude":-122.4148,"neighborhood":"Mission","urgency":12}
+]

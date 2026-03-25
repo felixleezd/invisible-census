@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invisible Census</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>*{margin:0;padding:0}body{font-family:system-ui;background:#0f172a;color:#e2e8f0}.header{padding:20px;border-bottom:1px solid #334155}h1{font-size:24px}#map{height:90vh}.legend{position:absolute;bottom:20px;right:20px;background:#1e293b;padding:15px;border-radius:8px}</style></head>
+<body><div class="header"><h1>🏙️ The Invisible Census</h1><p>Real-time SF homelessness tracking</p></div><div id="map"></div>
+<div class="legend"><h3>Urgency</h3><div>🔴 Critical</div><div>🟠 High</div><div>🟡 Medium</div><div>🔵 Low</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([37.7749,-122.4194],13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+const clusters=[
+{id:'SoMa',lat:37.7699,lon:-122.4103,count:12,urgency:'CRITICAL'},
+{id:'Tenderloin',lat:37.7833,lon:-122.4167,count:8,urgency:'HIGH'},
+{id:'Mission',lat:37.7599,lon:-122.4148,count:5,urgency:'MEDIUM'}
+];
+const colors={CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#ca8a04',LOW:'#2563eb'};
+clusters.forEach(c=>{
+L.circle([c.lat,c.lon],{color:colors[c.urgency],radius:200}).bindPopup(`<b>${c.id}</b><br>Reports: ${c.count}<br>Urgency: ${c.urgency}<br><button onclick="alert('Alert sent!')">📤 Dispatch</button>`).addTo(map);
+});
+</script></body></html>
