@@ -1,0 +1,9 @@
+# Raw API responses (keep processed output)
+output/*-raw.json
+
+# Environment / secrets
+.env
+*.env
+
+# OS
+.DS_Store

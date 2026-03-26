@@ -2,25 +2,30 @@
 set -e
 mkdir -p output
 
-echo "🔍 Starting Invisible Census..."
+echo "🔍 Starting Invisible Census Pipeline..."
+echo ""
 
-# Mock SF 311 data
-cat > output/sf311-output.json << 'EOF'
-[
-{"source":"sf311","caseId":"12345678","timestamp":"2026-03-25T22:00:00Z","requestType":"Homeless Encampment","description":"Large encampment under freeway","latitude":37.7699,"longitude":-122.4103,"neighborhood":"SoMa","urgency":8},
-{"source":"sf311","caseId":"12345679","timestamp":"2026-03-25T21:00:00Z","requestType":"Homeless Person","description":"Person needs medical attention","latitude":37.7833,"longitude":-122.4167,"neighborhood":"Tenderloin","urgency":15},
-{"source":"sf311","caseId":"12345680","timestamp":"2026-03-25T20:00:00Z","requestType":"Homeless Encampment","description":"Tent encampment near playground","latitude":37.7599,"longitude":-122.4148,"neighborhood":"Mission","urgency":12}
-]
-EOF
+# Step 1: Fetch SF 311 data (direct from data.sfgov.org — no key needed)
+echo "━━━ Step 1: SF 311 Data ━━━"
+bash scrapers/fetch-sf311.sh
+echo ""
 
-# Mock Reddit data
-cat > output/reddit-output.json << 'EOF'
-[
-{"source":"reddit","subreddit":"sanfrancisco","title":"Large encampment on Division St","text":"Growing fast","timestamp":"2026-03-25T22:00:00Z","latitude":37.7699,"longitude":-122.4103,"urgency":8},
-{"source":"reddit","subreddit":"AskSF","title":"Help needed in Tenderloin","text":"Medical emergency","timestamp":"2026-03-25T21:00:00Z","latitude":37.7833,"longitude":-122.4167,"urgency":15}
-]
-EOF
+# Step 2: Fetch Reddit data via Apify
+echo "━━━ Step 2: Reddit Data (Apify) ━━━"
+bash scrapers/fetch-reddit.sh
+echo ""
 
-echo "✓ Data ready"
-echo "🗺️ Map: Open frontend/index.html in browser"
-echo "✨ Demo ready!"
+# Step 3: Summary
+echo "━━━ Pipeline Complete ━━━"
+SF_COUNT=$(python3 -c "import json; print(len(json.load(open('output/sf311-output.json'))))" 2>/dev/null || echo "0")
+REDDIT_COUNT=$(python3 -c "import json; print(len(json.load(open('output/reddit-output.json'))))" 2>/dev/null || echo "0")
+echo "  📊 SF 311 reports:  ${SF_COUNT}"
+echo "  📊 Reddit posts:    ${REDDIT_COUNT}"
+echo ""
+echo "  → Next: OpenClaw agent (via Donely) processes this data"
+echo "    - Clusters by geolocation"
+echo "    - Scores urgency"
+echo "    - Generates outreach briefs"
+echo ""
+echo "🗺️  Open frontend/index.html to view the map"
+echo "✨  Done!"

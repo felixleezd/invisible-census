@@ -32,9 +32,15 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2
 .legend-dot.high{background:#ea580c;box-shadow:0 0 8px #ea580c88}
 .legend-dot.medium{background:#ca8a04;box-shadow:0 0 8px #ca8a0488}
 .legend-dot.low{background:#2563eb;box-shadow:0 0 8px #2563eb88}
+.popup-content{min-width:260px}
 .popup-content h3{margin:0 0 6px;font-size:15px;color:#1e293b}
 .popup-content .urgency-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;margin-bottom:6px}
+.popup-gallery{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;margin-bottom:8px;border-radius:6px;-webkit-overflow-scrolling:touch}
+.popup-gallery::-webkit-scrollbar{height:4px}
+.popup-gallery::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:2px}
+.popup-gallery img{width:220px;height:140px;object-fit:cover;border-radius:6px;flex-shrink:0;scroll-snap-align:start}
 .popup-content .detail{font-size:12px;color:#475569;margin:3px 0}
+.photo-hint{font-size:10px;color:#94a3b8;margin-bottom:6px;text-align:center}
 .popup-content .dispatch-btn{
   margin-top:8px;padding:6px 14px;border:none;border-radius:6px;
   background:#2563eb;color:#fff;font-size:12px;font-weight:600;
@@ -116,20 +122,40 @@ const badgeColors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'
 // Telegram dispatch
 const TG_TOKEN = '8668063566:AAFO8eedHQyGBMLdRY-b0des3vEbDdSPvF4';
 const TG_CHAT = '150729638';
+const clusterMap = {};
 
-function dispatch(id, urgency, score, count, summary) {
-  const msg = `🚨 *OUTREACH ALERT*\n\n📍 *${id}*\n⚠️ Urgency: *${urgency}* (${score}/20)\n📊 Reports: ${count} in last 24h\n\n${summary}\n\n_Sent from Invisible Census_`;
-  const btn = document.getElementById('btn-' + CSS.escape(id));
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.dispatch-btn');
+  if (!btn) return;
+  const idx = btn.getAttribute('data-idx');
+  const c = clusterMap[idx];
+  if (!c) return;
+
+  var action = c.urgency === 'CRITICAL' ? 'Immediate dispatch recommended' : c.urgency === 'HIGH' ? 'Priority dispatch needed' : 'Monitor and assess';
+  var needs = c.summary.indexOf('medical') >= 0 || c.summary.indexOf('Medical') >= 0 || c.summary.indexOf('overdose') >= 0 ? 'Medical attention' : c.summary.indexOf('Sanitation') >= 0 ? 'Sanitation services' : c.summary.indexOf('shelter') >= 0 ? 'Shelter referrals' : 'Outreach support';
+  var gmaps = 'https://www.google.com/maps?q=' + c.lat + ',' + c.lon;
+
+  var msg = '🚨 INVISIBLE CENSUS - OUTREACH ALERT\n\n' +
+    'Urgency: ' + c.urgency + '\n' +
+    'Location: ' + c.id + ', San Francisco\n' +
+    'Coordinates: ' + c.lat + ', ' + c.lon + '\n' +
+    'Reports: ' + c.count + ' reports in 24h\n' +
+    'Needs: ' + needs + '\n\n' +
+    'Recommended Action: 🚨 ' + action + '\n\n' +
+    '📍 Open in Google Maps\n' + gmaps + '\n\n' +
+    '---\n' +
+    c.summary;
+
   btn.textContent = 'Sending...';
   btn.disabled = true;
 
-  fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+  fetch('https://api.telegram.org/bot' + TG_TOKEN + '/sendMessage', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({chat_id: TG_CHAT, text: msg, parse_mode: 'Markdown'})
+    body: JSON.stringify({chat_id: TG_CHAT, text: msg, disable_web_page_preview: false})
   })
-  .then(r => r.json())
-  .then(data => {
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
     if (data.ok) {
       btn.textContent = 'Alert Sent!';
       btn.style.background = '#16a34a';
@@ -138,11 +164,11 @@ function dispatch(id, urgency, score, count, summary) {
       btn.disabled = false;
     }
   })
-  .catch(() => {
+  .catch(function() {
     btn.textContent = 'Failed - Retry';
     btn.disabled = false;
   });
-}
+});
 
 // Stats
 const totalReports = clusters.reduce((s,c) => s + c.count, 0);
@@ -152,7 +178,8 @@ document.getElementById('total-clusters').textContent = clusters.length;
 document.getElementById('critical-count').textContent = criticalCount;
 
 // Render clusters
-clusters.forEach(c => {
+clusters.forEach((c, i) => {
+  clusterMap[i] = c;
   const radius = Math.max(120, c.count * 25);
   const circle = L.circle([c.lat, c.lon], {
     color: colors[c.urgency],
@@ -162,15 +189,24 @@ clusters.forEach(c => {
     radius: radius
   });
 
-  const popup = `
-    <div class="popup-content">
-      <h3>${c.id}</h3>
-      <span class="urgency-badge" style="background:${badgeColors[c.urgency]}">${c.urgency} (${c.score})</span>
-      <div class="detail"><strong>${c.count}</strong> reports in last 24h</div>
-      <div class="detail" style="margin-top:6px;color:#334155">${c.summary}</div>
-      <button class="dispatch-btn" id="btn-${c.id}" onclick="dispatch('${c.id}','${c.urgency}',${c.score},${c.count},\`${c.summary}\`)">Send Outreach Alert</button>
-    </div>
-  `;
+  // Each cluster gets 3-4 unique photos using picsum with seed
+  var seed = Math.abs(c.lat * 1000 + c.lon * 1000) | 0;
+  var numPhotos = c.urgency === 'CRITICAL' ? 4 : c.urgency === 'HIGH' ? 3 : 3;
+  var gallery = '<div class="popup-gallery">';
+  for (var p = 0; p < numPhotos; p++) {
+    gallery += '<img src="https://picsum.photos/seed/' + (seed + p * 7) + '/440/280" alt="Site photo ' + (p+1) + '" />';
+  }
+  gallery += '</div>';
+
+  const popup = '<div class="popup-content">' +
+    gallery +
+    '<div class="photo-hint">Swipe for more photos &rarr;</div>' +
+    '<h3>' + c.id + '</h3>' +
+    '<span class="urgency-badge" style="background:' + badgeColors[c.urgency] + '">' + c.urgency + ' (' + c.score + ')</span>' +
+    '<div class="detail"><strong>' + c.count + '</strong> reports in last 24h</div>' +
+    '<div class="detail" style="margin-top:6px;color:#334155">' + c.summary + '</div>' +
+    '<button class="dispatch-btn" data-idx="' + i + '">Send Outreach Alert</button>' +
+    '</div>';
 
   circle.bindPopup(popup, {maxWidth: 280});
   circle.addTo(map);
