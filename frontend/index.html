@@ -73,6 +73,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
 <script>
 const map = L.map('map').setView([37.7749, -122.4194], 13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -120,8 +121,9 @@ const colors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563
 const badgeColors = {CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#ca8a04', LOW:'#2563eb'};
 
 // Telegram dispatch
-const TG_TOKEN = '8668063566:AAFO8eedHQyGBMLdRY-b0des3vEbDdSPvF4';
-const TG_CHAT = '150729638';
+// Load from config.js (generated from .env by run.sh, gitignored)
+const TG_TOKEN = window.TG_CONFIG?.token || '';
+const TG_CHAT = window.TG_CONFIG?.chat || '';
 const clusterMap = {};
 
 document.addEventListener('click', function(e) {

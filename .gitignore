@@ -4,6 +4,8 @@ output/*-raw.json
 # Environment / secrets
 .env
 *.env
+!.env.example
+frontend/config.js
 
 # OS
 .DS_Store

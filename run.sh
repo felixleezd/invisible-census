@@ -2,6 +2,10 @@
 set -e
 mkdir -p output
 
+# Load env and generate frontend config
+source .env 2>/dev/null || true
+echo "window.TG_CONFIG={token:'${TG_BOT_TOKEN}',chat:'${TG_CHAT_ID}'};" > frontend/config.js
+
 echo "🔍 Starting Invisible Census Pipeline..."
 echo ""
 

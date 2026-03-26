@@ -6,7 +6,8 @@
 set -e
 mkdir -p output
 
-APIFY_TOKEN="${APIFY_TOKEN:-apify_api_rn6ws4jgBAvjRq4wNU7fgwGPpPgCTU02GawC}"
+source .env 2>/dev/null || true
+APIFY_TOKEN="${APIFY_TOKEN:?Set APIFY_TOKEN in .env}"
 
 echo "📡 Running Apify Reddit scraper for r/sanfrancisco & r/AskSF..."
 
